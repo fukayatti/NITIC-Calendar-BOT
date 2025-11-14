@@ -1,0 +1,13 @@
+{
+  "name": "calendar-bot",
+  "version": "1.0.0",
+  "description": "Google Calendar event fetcher",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-ical": "^0.18.0"
+  }
+}
