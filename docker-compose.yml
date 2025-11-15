@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  calendar-bot:
+    build: .
+    container_name: discord-calendar-bot
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - CALENDAR_URL=${CALENDAR_URL}
+      - TZ=Asia/Tokyo
+      - CONFIG_FILE=/app/data/config.json
+    volumes:
+      # 設定ファイルを永続化
+      - ./data:/app/data
+    # ログ設定（オプション）
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

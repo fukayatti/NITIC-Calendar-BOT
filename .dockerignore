@@ -1,0 +1,31 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Git files
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+test.js
+
+# Documentation
+README.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Docker files (not needed in image)
+Dockerfile
+docker-compose.yml
+.dockerignore
