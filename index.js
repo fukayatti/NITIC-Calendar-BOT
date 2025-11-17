@@ -130,8 +130,8 @@ async function getTomorrowEvents() {
         if (eventStart < dayAfterTomorrow && eventEnd >= tomorrow) {
           tomorrowEvents.push({
             summary: event.summary,
-            start: eventStart,
-            end: eventEnd,
+            start: event.start, // 元の時刻情報を保存
+            end: event.end,     // 元の時刻情報を保存
             description: event.description || "",
             location: event.location || "",
           });
