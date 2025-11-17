@@ -88,11 +88,12 @@ async function getTomorrowEvents() {
 
         // event.startがオブジェクトでDateインスタンスの場合
         if (event.start instanceof Date) {
-          // UTC時間をローカル日付に変換（時刻部分を無視）
+          // UTCの年月日を取得してJSTの日付オブジェクトを作成
           const utcDate = new Date(event.start);
-          const localDateStr = utcDate.toLocaleDateString("en-CA"); // YYYY-MM-DD形式
-          const [year, month, day] = localDateStr.split("-").map(Number);
-          eventStart = new Date(year, month - 1, day);
+          const year = utcDate.getUTCFullYear();
+          const month = utcDate.getUTCMonth();
+          const day = utcDate.getUTCDate();
+          eventStart = new Date(year, month, day);
         } else if (
           typeof event.start === "string" &&
           event.start.length === 8
@@ -110,11 +111,12 @@ async function getTomorrowEvents() {
         // 終了日も同様に処理
         let eventEnd;
         if (event.end instanceof Date) {
-          // UTC時間をローカル日付に変換（時刻部分を無視）
+          // UTCの年月日を取得してJSTの日付オブジェクトを作成
           const utcDate = new Date(event.end);
-          const localDateStr = utcDate.toLocaleDateString("en-CA"); // YYYY-MM-DD形式
-          const [year, month, day] = localDateStr.split("-").map(Number);
-          eventEnd = new Date(year, month - 1, day);
+          const year = utcDate.getUTCFullYear();
+          const month = utcDate.getUTCMonth();
+          const day = utcDate.getUTCDate();
+          eventEnd = new Date(year, month, day);
         } else if (typeof event.end === "string" && event.end.length === 8) {
           const year = parseInt(event.end.substring(0, 4));
           const month = parseInt(event.end.substring(4, 6)) - 1;
@@ -125,7 +127,7 @@ async function getTomorrowEvents() {
         }
 
         // 明日の予定かどうかをチェック
-        if (eventStart < dayAfterTomorrow && eventEnd > tomorrow) {
+        if (eventStart < dayAfterTomorrow && eventEnd >= tomorrow) {
           tomorrowEvents.push({
             summary: event.summary,
             start: eventStart,
