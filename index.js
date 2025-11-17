@@ -66,12 +66,28 @@ const client = new Client({
 
 // カレンダーイベントを取得する関数
 async function getTomorrowEvents() {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
+  // JSTでの現在時刻を取得
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000; // JSTはUTC+9
+  const nowJST = new Date(now.getTime() + jstOffset);
+  
+  // JSTでの明日の日付を計算
+  const tomorrowJST = new Date(nowJST);
+  tomorrowJST.setUTCDate(tomorrowJST.getUTCDate() + 1);
+  tomorrowJST.setUTCHours(0, 0, 0, 0);
+  
+  // JSTでの明後日の日付を計算
+  const dayAfterTomorrowJST = new Date(tomorrowJST);
+  dayAfterTomorrowJST.setUTCDate(dayAfterTomorrowJST.getUTCDate() + 1);
+  
+  // UTCに戻す（比較用）
+  const tomorrow = new Date(tomorrowJST.getTime() - jstOffset);
+  const dayAfterTomorrow = new Date(dayAfterTomorrowJST.getTime() - jstOffset);
 
-  const dayAfterTomorrow = new Date(tomorrow);
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+  // デバッグログ
+  console.log("[DEBUG] システム時刻:", now.toISOString(), "JST:", now.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"}));
+  console.log("[DEBUG] 明日 (JST 00:00):", tomorrow.toISOString(), "=", tomorrow.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"}));
+  console.log("[DEBUG] 明後日 (JST 00:00):", dayAfterTomorrow.toISOString(), "=", dayAfterTomorrow.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"}));
 
   try {
     // キャッシュを回避するためにタイムスタンプを追加
@@ -88,12 +104,12 @@ async function getTomorrowEvents() {
 
         // event.startがオブジェクトでDateインスタンスの場合
         if (event.start instanceof Date) {
-          // UTCの年月日を取得してJSTの日付オブジェクトを作成
-          const utcDate = new Date(event.start);
-          const year = utcDate.getUTCFullYear();
-          const month = utcDate.getUTCMonth();
-          const day = utcDate.getUTCDate();
-          eventStart = new Date(year, month, day);
+          // JSTでの年月日を取得してUTC 00:00の日付オブジェクトを作成
+          const jstDate = new Date(event.start.getTime() + 9 * 60 * 60 * 1000);
+          const year = jstDate.getUTCFullYear();
+          const month = jstDate.getUTCMonth();
+          const day = jstDate.getUTCDate();
+          eventStart = new Date(Date.UTC(year, month, day));
         } else if (
           typeof event.start === "string" &&
           event.start.length === 8
@@ -111,12 +127,12 @@ async function getTomorrowEvents() {
         // 終了日も同様に処理
         let eventEnd;
         if (event.end instanceof Date) {
-          // UTCの年月日を取得してJSTの日付オブジェクトを作成
-          const utcDate = new Date(event.end);
-          const year = utcDate.getUTCFullYear();
-          const month = utcDate.getUTCMonth();
-          const day = utcDate.getUTCDate();
-          eventEnd = new Date(year, month, day);
+          // JSTでの年月日を取得してUTC 00:00の日付オブジェクトを作成
+          const jstDate = new Date(event.end.getTime() + 9 * 60 * 60 * 1000);
+          const year = jstDate.getUTCFullYear();
+          const month = jstDate.getUTCMonth();
+          const day = jstDate.getUTCDate();
+          eventEnd = new Date(Date.UTC(year, month, day));
         } else if (typeof event.end === "string" && event.end.length === 8) {
           const year = parseInt(event.end.substring(0, 4));
           const month = parseInt(event.end.substring(4, 6)) - 1;
@@ -127,11 +143,15 @@ async function getTomorrowEvents() {
         }
 
         // 明日の予定かどうかをチェック
-        if (eventStart < dayAfterTomorrow && eventEnd >= tomorrow) {
+        const isTomorrow = eventStart < dayAfterTomorrow && eventEnd >= tomorrow;
+        if (isTomorrow) {
+          console.log(`[DEBUG] ✅ 明日の予定: ${event.summary}`);
+          console.log(`[DEBUG]   開始: ${eventStart.toISOString()} (${eventStart.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})})`);
+          console.log(`[DEBUG]   終了: ${eventEnd.toISOString()} (${eventEnd.toLocaleString("ja-JP", {timeZone: "Asia/Tokyo"})})`);
           tomorrowEvents.push({
             summary: event.summary,
             start: event.start, // 元の時刻情報を保存
-            end: event.end, // 元の時刻情報を保存
+            end: event.end,     // 元の時刻情報を保存
             description: event.description || "",
             location: event.location || "",
           });
