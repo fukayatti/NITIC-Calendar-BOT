@@ -169,10 +169,12 @@ function createMessage(events) {
       const startTime = new Date(event.start).toLocaleTimeString("ja-JP", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Tokyo",
       });
       const endTime = new Date(event.end).toLocaleTimeString("ja-JP", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Tokyo",
       });
 
       const isAllDay = startTime === "00:00" && endTime === "00:00";
