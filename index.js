@@ -74,7 +74,11 @@ async function getTomorrowEvents() {
   dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
 
   try {
-    const events = await ical.async.fromURL(CALENDAR_URL);
+    // キャッシュを回避するためにタイムスタンプを追加
+    const urlWithTimestamp = `${CALENDAR_URL}${
+      CALENDAR_URL.includes("?") ? "&" : "?"
+    }_t=${Date.now()}`;
+    const events = await ical.async.fromURL(urlWithTimestamp);
     const tomorrowEvents = [];
 
     for (const event of Object.values(events)) {
