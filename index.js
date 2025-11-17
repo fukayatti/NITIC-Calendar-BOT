@@ -195,13 +195,19 @@ async function getTomorrowEvents() {
 
 // Discord用のメッセージを生成する関数
 function createMessage(events) {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dateStr = tomorrow.toLocaleDateString("ja-JP", {
+  // JSTでの明日を計算
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const nowJST = new Date(now.getTime() + jstOffset);
+  const tomorrowJST = new Date(nowJST);
+  tomorrowJST.setUTCDate(tomorrowJST.getUTCDate() + 1);
+  
+  const dateStr = tomorrowJST.toLocaleDateString("ja-JP", {
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "long",
+    timeZone: "UTC",  // tomorrowJSTはすでにJST時刻なのでUTCとして読む
   });
 
   let message = "";
