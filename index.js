@@ -201,13 +201,13 @@ function createMessage(events) {
   const nowJST = new Date(now.getTime() + jstOffset);
   const tomorrowJST = new Date(nowJST);
   tomorrowJST.setUTCDate(tomorrowJST.getUTCDate() + 1);
-  
+
   const dateStr = tomorrowJST.toLocaleDateString("ja-JP", {
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "long",
-    timeZone: "UTC",  // tomorrowJSTはすでにJST時刻なのでUTCとして読む
+    timeZone: "UTC", // tomorrowJSTはすでにJST時刻なのでUTCとして読む
   });
 
   let message = "";
