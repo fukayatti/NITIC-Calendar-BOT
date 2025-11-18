@@ -1,18 +1,18 @@
-import {
-  Client,
-  GatewayIntentBits,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  PermissionFlagsBits,
-} from "discord.js";
-import ical from "node-ical";
+import { Client, GatewayIntentBits, REST, Routes } from "discord.js";
 import cron from "node-cron";
 import * as fs from "fs";
+import { getTomorrowEvents } from "./src/calendar.js";
+import { createMessage } from "./src/message.js";
+import { loadConfig, saveConfig } from "./src/config.js";
+import {
+  getCommandDefinitions,
+  handleScheduleCommand,
+  handleUnscheduleCommand,
+  handleTomorrowCommand,
+} from "./src/commands.js";
 
 // 環境変数の読み込み（.envファイルがある場合）
 let DISCORD_TOKEN, CALENDAR_URL;
-let scheduledChannelId = null; // スケジュール送信先のチャンネルID
 
 if (fs.existsSync(".env")) {
   const envContent = fs.readFileSync(".env", "utf-8");
@@ -31,228 +31,14 @@ if (fs.existsSync(".env")) {
     "https://calendar.google.com/calendar/ical/e5862bfdf048c1e523b453101aba7ef26c8fcb5d700bf83058071da8f1aa1547%40group.calendar.google.com/public/basic.ics";
 }
 
-// 設定ファイルの読み書き
-const CONFIG_FILE = process.env.CONFIG_FILE || "config.json";
-
-function loadConfig() {
-  if (fs.existsSync(CONFIG_FILE)) {
-    try {
-      const data = fs.readFileSync(CONFIG_FILE, "utf-8");
-      return JSON.parse(data);
-    } catch (error) {
-      console.error("設定ファイルの読み込みに失敗しました:", error);
-      return {};
-    }
-  }
-  return {};
-}
-
-function saveConfig(config) {
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-  } catch (error) {
-    console.error("設定ファイルの保存に失敗しました:", error);
-  }
-}
-
 // 設定を読み込み
 const config = loadConfig();
-scheduledChannelId = config.channelId || null;
+let scheduledChannelId = config.channelId || null;
 
 // Discord botクライアントの作成
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
-
-// カレンダーイベントを取得する関数
-async function getTomorrowEvents() {
-  // JSTでの現在時刻を取得
-  const now = new Date();
-  const jstOffset = 9 * 60 * 60 * 1000; // JSTはUTC+9
-  const nowJST = new Date(now.getTime() + jstOffset);
-
-  // JSTでの明日の日付を計算
-  const tomorrowJST = new Date(nowJST);
-  tomorrowJST.setUTCDate(tomorrowJST.getUTCDate() + 1);
-  tomorrowJST.setUTCHours(0, 0, 0, 0);
-
-  // JSTでの明後日の日付を計算
-  const dayAfterTomorrowJST = new Date(tomorrowJST);
-  dayAfterTomorrowJST.setUTCDate(dayAfterTomorrowJST.getUTCDate() + 1);
-
-  // UTCに戻す（比較用）
-  const tomorrow = new Date(tomorrowJST.getTime() - jstOffset);
-  const dayAfterTomorrow = new Date(dayAfterTomorrowJST.getTime() - jstOffset);
-
-  // デバッグログ
-  console.log(
-    "[DEBUG] システム時刻:",
-    now.toISOString(),
-    "JST:",
-    now.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-  );
-  console.log(
-    "[DEBUG] 明日 (JST 00:00):",
-    tomorrow.toISOString(),
-    "=",
-    tomorrow.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-  );
-  console.log(
-    "[DEBUG] 明後日 (JST 00:00):",
-    dayAfterTomorrow.toISOString(),
-    "=",
-    dayAfterTomorrow.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-  );
-
-  try {
-    // キャッシュを回避するためにタイムスタンプを追加
-    const urlWithTimestamp = `${CALENDAR_URL}${
-      CALENDAR_URL.includes("?") ? "&" : "?"
-    }_t=${Date.now()}`;
-    const events = await ical.async.fromURL(urlWithTimestamp);
-    const tomorrowEvents = [];
-
-    for (const event of Object.values(events)) {
-      // イベントタイプのみを処理
-      if (event.type === "VEVENT") {
-        let eventStart;
-
-        // event.startがオブジェクトでDateインスタンスの場合
-        if (event.start instanceof Date) {
-          // JSTでの年月日を取得してUTC 00:00の日付オブジェクトを作成
-          const jstDate = new Date(event.start.getTime() + 9 * 60 * 60 * 1000);
-          const year = jstDate.getUTCFullYear();
-          const month = jstDate.getUTCMonth();
-          const day = jstDate.getUTCDate();
-          eventStart = new Date(Date.UTC(year, month, day));
-        } else if (
-          typeof event.start === "string" &&
-          event.start.length === 8
-        ) {
-          // YYYYMMDD形式の場合
-          const year = parseInt(event.start.substring(0, 4));
-          const month = parseInt(event.start.substring(4, 6)) - 1;
-          const day = parseInt(event.start.substring(6, 8));
-          eventStart = new Date(year, month, day);
-        } else {
-          // その他の場合はそのまま使用
-          eventStart = new Date(event.start);
-        }
-
-        // 終了日も同様に処理
-        let eventEnd;
-        if (event.end instanceof Date) {
-          // JSTでの年月日を取得してUTC 00:00の日付オブジェクトを作成
-          const jstDate = new Date(event.end.getTime() + 9 * 60 * 60 * 1000);
-          const year = jstDate.getUTCFullYear();
-          const month = jstDate.getUTCMonth();
-          const day = jstDate.getUTCDate();
-          eventEnd = new Date(Date.UTC(year, month, day));
-        } else if (typeof event.end === "string" && event.end.length === 8) {
-          const year = parseInt(event.end.substring(0, 4));
-          const month = parseInt(event.end.substring(4, 6)) - 1;
-          const day = parseInt(event.end.substring(6, 8));
-          eventEnd = new Date(year, month, day);
-        } else {
-          eventEnd = new Date(event.end);
-        }
-
-        // 明日の予定かどうかをチェック
-        const isTomorrow =
-          eventStart < dayAfterTomorrow && eventEnd >= tomorrow;
-        if (isTomorrow) {
-          console.log(`[DEBUG] ✅ 明日の予定: ${event.summary}`);
-          console.log(
-            `[DEBUG]   開始: ${eventStart.toISOString()} (${eventStart.toLocaleString(
-              "ja-JP",
-              { timeZone: "Asia/Tokyo" }
-            )})`
-          );
-          console.log(
-            `[DEBUG]   終了: ${eventEnd.toISOString()} (${eventEnd.toLocaleString(
-              "ja-JP",
-              { timeZone: "Asia/Tokyo" }
-            )})`
-          );
-          tomorrowEvents.push({
-            summary: event.summary,
-            start: event.start, // 元の時刻情報を保存
-            end: event.end, // 元の時刻情報を保存
-            description: event.description || "",
-            location: event.location || "",
-          });
-        }
-      }
-    }
-
-    tomorrowEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
-    return tomorrowEvents;
-  } catch (error) {
-    console.error("カレンダーの取得に失敗しました:", error);
-    return null;
-  }
-}
-
-// Discord用のメッセージを生成する関数
-function createMessage(events) {
-  // JSTでの明日を計算
-  const now = new Date();
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const nowJST = new Date(now.getTime() + jstOffset);
-  const tomorrowJST = new Date(nowJST);
-  tomorrowJST.setUTCDate(tomorrowJST.getUTCDate() + 1);
-
-  const dateStr = tomorrowJST.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-    timeZone: "UTC", // tomorrowJSTはすでにJST時刻なのでUTCとして読む
-  });
-
-  let message = "";
-
-  if (events.length === 0) {
-    message = `📅 **明日(${dateStr})の予定**\n\n予定はありません。`;
-  } else {
-    message = `📅 **明日(${dateStr})の予定** (${events.length}件)\n\n`;
-
-    events.forEach((event, index) => {
-      const startTime = new Date(event.start).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Tokyo",
-      });
-      const endTime = new Date(event.end).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Tokyo",
-      });
-
-      const isAllDay = startTime === "00:00" && endTime === "00:00";
-
-      message += `### ${event.summary}\n`;
-
-      if (!isAllDay) {
-        message += `⏰ ${startTime} - ${endTime}\n`;
-      }
-
-      if (event.location) {
-        message += `📍 ${event.location}\n`;
-      }
-
-      if (event.description) {
-        message += `📝 ${event.description}\n`;
-      }
-
-      if (index < events.length - 1) {
-        message += "\n---\n\n";
-      }
-    });
-  }
-
-  return message;
-}
 
 // 明日の予定を送信する関数
 async function sendTomorrowSchedule(channelId = null) {
@@ -271,7 +57,7 @@ async function sendTomorrowSchedule(channelId = null) {
     }
 
     console.log("明日の予定を取得中...");
-    const events = await getTomorrowEvents();
+    const events = await getTomorrowEvents(CALENDAR_URL);
 
     if (events === null) {
       await channel.send("❌ カレンダーの取得に失敗しました。");
@@ -288,26 +74,7 @@ async function sendTomorrowSchedule(channelId = null) {
 
 // スラッシュコマンドの登録
 async function registerCommands() {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("schedule")
-      .setDescription("カレンダーの自動送信を設定します")
-      .addChannelOption((option) =>
-        option
-          .setName("channel")
-          .setDescription("予定を送信するチャンネル")
-          .setRequired(true)
-      )
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-    new SlashCommandBuilder()
-      .setName("unschedule")
-      .setDescription("カレンダーの自動送信を停止します")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-    new SlashCommandBuilder()
-      .setName("tomorrow")
-      .setDescription("明日の予定を今すぐ表示します"),
-  ].map((command) => command.toJSON());
-
+  const commands = getCommandDefinitions();
   const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
 
   try {
@@ -357,66 +124,20 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "schedule") {
-    const channel = interaction.options.getChannel("channel");
-
-    if (!channel.isTextBased()) {
-      await interaction.reply({
-        content: "❌ テキストチャンネルを指定してください。",
-        ephemeral: true,
-      });
-      return;
+    const result = await handleScheduleCommand(interaction);
+    if (result.success) {
+      scheduledChannelId = result.channelId;
     }
-
-    scheduledChannelId = channel.id;
-    const config = loadConfig();
-    config.channelId = channel.id;
-    saveConfig(config);
-
-    await interaction.reply({
-      content: `✅ ${channel} で毎日18:00に明日の予定を送信します。`,
-      ephemeral: true,
-    });
-
-    console.log(
-      `送信先チャンネルを設定しました: ${channel.name} (${channel.id})`
-    );
   } else if (interaction.commandName === "unschedule") {
-    if (!scheduledChannelId) {
-      await interaction.reply({
-        content: "⚠️ 自動送信は設定されていません。",
-        ephemeral: true,
-      });
-      return;
+    const result = await handleUnscheduleCommand(
+      interaction,
+      scheduledChannelId
+    );
+    if (result.success) {
+      scheduledChannelId = null;
     }
-
-    scheduledChannelId = null;
-    const config = loadConfig();
-    config.channelId = null;
-    saveConfig(config);
-
-    await interaction.reply({
-      content: "✅ カレンダーの自動送信を停止しました。",
-      ephemeral: true,
-    });
-
-    console.log("自動送信を停止しました");
   } else if (interaction.commandName === "tomorrow") {
-    await interaction.deferReply();
-
-    try {
-      const events = await getTomorrowEvents();
-
-      if (events === null) {
-        await interaction.editReply("❌ カレンダーの取得に失敗しました。");
-        return;
-      }
-
-      const message = createMessage(events);
-      await interaction.editReply(message);
-    } catch (error) {
-      console.error("コマンド実行エラー:", error);
-      await interaction.editReply("❌ エラーが発生しました。");
-    }
+    await handleTomorrowCommand(interaction, CALENDAR_URL);
   }
 });
 
