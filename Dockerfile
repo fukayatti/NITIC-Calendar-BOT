@@ -15,6 +15,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 # アプリケーションのソースコードをコピー
 COPY index.js ./
+COPY src ./src
 
 # 設定ファイル用のボリュームマウントポイント
 VOLUME ["/app/data"]
