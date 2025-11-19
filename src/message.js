@@ -38,9 +38,10 @@ export function createMessage(events) {
         timeZone: "Asia/Tokyo",
       });
 
-      const isAllDay = startTime === "09:00" && endTime === "09:00";
+      const isAllDay = startTime === endTime;
 
-      message += `### ${event.summary}\n`;
+      message += `-----------------------------------\n`;
+      message += `### ${index + 1}. ${event.summary}\n`;
 
       if (!isAllDay) {
         message += `⏰ ${startTime} - ${endTime}\n`;
@@ -54,10 +55,10 @@ export function createMessage(events) {
         message += `📝 ${event.description}\n`;
       }
 
-      if (index < events.length - 1) {
-        message += "\n---\n\n";
-      }
+      message += "\n";
     });
+
+    message += `-----------------------------------`;
   }
 
   return message;
