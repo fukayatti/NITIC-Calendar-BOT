@@ -1,12 +1,13 @@
 # デプロイガイド
 
-## 簡単デプロイ（1コマンド）
+## 簡単デプロイ（1 コマンド）
 
 ```bash
 ./deploy.sh
 ```
 
-このコマンド1つで以下が自動実行されます:
+このコマンド 1 つで以下が自動実行されます:
+
 1. 📥 `git pull` - 最新のコードを取得
 2. ⏹️ `docker-compose down` - 既存のコンテナを停止
 3. 🔨 `docker-compose build` - 新しいイメージをビルド
@@ -24,7 +25,7 @@ git clone https://github.com/fukayatti/NITIC-Calendar-BOT.git
 cd NITIC-Calendar-BOT
 ```
 
-### 2. .envファイルを作成
+### 2. .env ファイルを作成
 
 ```bash
 cp .env.example .env
@@ -94,6 +95,7 @@ docker-compose up -d
 ### チャンネル設定が消える場合
 
 `data/config.json`が正しくマウントされているか確認:
+
 ```bash
 ls -la data/
 cat data/config.json
