@@ -43,16 +43,22 @@ export function createMessage(events) {
       message += `-----------------------------------\n`;
       message += `### ${index + 1}. ${event.summary}\n`;
 
-      if (!isAllDay) {
+      if (isAllDay) {
+        message += `⏰ 終日\n`;
+      } else {
         message += `⏰ ${startTime} - ${endTime}\n`;
       }
 
       if (event.location) {
         message += `📍 ${event.location}\n`;
+      } else {
+        message += `📍 なし\n`;
       }
 
       if (event.description) {
         message += `📝 ${event.description}\n`;
+      } else {
+        message += `📝 なし\n`;
       }
 
       message += "\n";
