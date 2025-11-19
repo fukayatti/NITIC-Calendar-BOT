@@ -50,7 +50,7 @@ export async function handleScheduleCommand(interaction) {
   if (!config.channelIds) {
     config.channelIds = [];
   }
-  
+
   // 既に登録済みかチェック
   if (config.channelIds.includes(channel.id)) {
     await interaction.reply({
@@ -59,7 +59,7 @@ export async function handleScheduleCommand(interaction) {
     });
     return { success: false };
   }
-  
+
   config.channelIds.push(channel.id);
   saveConfig(config);
 
@@ -91,11 +91,11 @@ export async function handleUnscheduleCommand(interaction, currentChannelIds) {
   }
 
   const config = loadConfig();
-  
+
   // 実行したチャンネルのみ削除
   const channelId = interaction.channelId;
   const index = config.channelIds.indexOf(channelId);
-  
+
   if (index === -1) {
     await interaction.reply({
       content: "⚠️ このチャンネルは登録されていません。",
@@ -103,7 +103,7 @@ export async function handleUnscheduleCommand(interaction, currentChannelIds) {
     });
     return { success: false };
   }
-  
+
   config.channelIds.splice(index, 1);
   saveConfig(config);
 
