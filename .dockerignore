@@ -13,6 +13,11 @@ npm-debug.log
 
 # Test files
 test.js
+proto.js
+
+# Config files (will be mounted as volume)
+config.json
+data/
 
 # Documentation
 README.md

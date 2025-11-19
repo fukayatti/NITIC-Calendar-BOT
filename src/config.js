@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 
 const CONFIG_FILE = process.env.CONFIG_FILE || "config.json";
 
@@ -25,7 +26,14 @@ export function loadConfig() {
  */
 export function saveConfig(config) {
   try {
+    // ディレクトリが存在しない場合は作成
+    const dir = path.dirname(CONFIG_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    console.log(`設定を保存しました: ${CONFIG_FILE}`);
   } catch (error) {
     console.error("設定ファイルの保存に失敗しました:", error);
   }
