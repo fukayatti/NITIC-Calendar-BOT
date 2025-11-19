@@ -33,42 +33,44 @@ if (fs.existsSync(".env")) {
 
 // 設定を読み込み
 const config = loadConfig();
-let scheduledChannelId = config.channelId || null;
+let scheduledChannelIds = config.channelIds || [];
 
 // Discord botクライアントの作成
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-// 明日の予定を送信する関数
-async function sendTomorrowSchedule(channelId = null) {
-  try {
-    const targetChannelId = channelId || scheduledChannelId;
+// 明日の予定を全チャンネルに送信する関数
+async function sendTomorrowScheduleToAll() {
+  if (scheduledChannelIds.length === 0) {
+    console.error("送信先チャンネルが設定されていません");
+    return;
+  }
 
-    if (!targetChannelId) {
-      console.error("送信先チャンネルが設定されていません");
-      return;
+  console.log("明日の予定を取得中...");
+  const events = await getTomorrowEvents(CALENDAR_URL);
+
+  if (events === null) {
+    console.error("カレンダーの取得に失敗しました");
+    return;
+  }
+
+  const message = createMessage(events);
+
+  // 全チャンネルに送信
+  for (const channelId of scheduledChannelIds) {
+    try {
+      const channel = await client.channels.fetch(channelId);
+      if (!channel) {
+        console.error(`チャンネルが見つかりません: ${channelId}`);
+        continue;
+      }
+
+      await channel.send(message);
+      console.log(`予定を送信しました (チャンネル: ${channel.name})`);
+    } catch (error) {
+      console.error(`メッセージの送信に失敗しました (${channelId}):`, error);
     }
-
-    const channel = await client.channels.fetch(targetChannelId);
-    if (!channel) {
-      console.error("チャンネルが見つかりません");
-      return;
-    }
-
-    console.log("明日の予定を取得中...");
-    const events = await getTomorrowEvents(CALENDAR_URL);
-
-    if (events === null) {
-      await channel.send("❌ カレンダーの取得に失敗しました。");
-      return;
-    }
-
-    const message = createMessage(events);
-    await channel.send(message);
-    console.log(`予定を送信しました (チャンネル: ${channel.name})`);
-  } catch (error) {
-    console.error("メッセージの送信に失敗しました:", error);
   }
 }
 
@@ -95,10 +97,11 @@ client.once("ready", async () => {
   // スラッシュコマンドを登録
   await registerCommands();
 
-  if (scheduledChannelId) {
+  if (scheduledChannelIds.length > 0) {
     console.log(
-      `毎日18:00に明日の予定を送信します (チャンネルID: ${scheduledChannelId})`
+      `毎日18:00に明日の予定を送信します (登録チャンネル数: ${scheduledChannelIds.length}件)`
     );
+    console.log(`チャンネルID: ${scheduledChannelIds.join(", ")}`);
   } else {
     console.log("⚠️ 送信先チャンネルが設定されていません");
     console.log("/schedule コマンドでチャンネルを設定してください");
@@ -108,9 +111,9 @@ client.once("ready", async () => {
   cron.schedule(
     "0 18 * * *",
     () => {
-      if (scheduledChannelId) {
+      if (scheduledChannelIds.length > 0) {
         console.log("スケジュール実行: 18:00");
-        sendTomorrowSchedule();
+        sendTomorrowScheduleToAll();
       }
     },
     {
@@ -126,15 +129,15 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "schedule") {
     const result = await handleScheduleCommand(interaction);
     if (result.success) {
-      scheduledChannelId = result.channelId;
+      scheduledChannelIds = result.channelIds;
     }
   } else if (interaction.commandName === "unschedule") {
     const result = await handleUnscheduleCommand(
       interaction,
-      scheduledChannelId
+      scheduledChannelIds
     );
     if (result.success) {
-      scheduledChannelId = null;
+      scheduledChannelIds = result.channelIds;
     }
   } else if (interaction.commandName === "tomorrow") {
     await handleTomorrowCommand(interaction, CALENDAR_URL);

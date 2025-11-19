@@ -32,7 +32,7 @@ export function getCommandDefinitions() {
 /**
  * /schedule コマンドの処理
  * @param {CommandInteraction} interaction
- * @returns {Object} { success: boolean, channelId: string }
+ * @returns {Object} { success: boolean, channelIds: string[] }
  */
 export async function handleScheduleCommand(interaction) {
   const channel = interaction.options.getChannel("channel");
@@ -46,29 +46,43 @@ export async function handleScheduleCommand(interaction) {
   }
 
   const config = loadConfig();
-  config.channelId = channel.id;
+  // 配列で管理
+  if (!config.channelIds) {
+    config.channelIds = [];
+  }
+  
+  // 既に登録済みかチェック
+  if (config.channelIds.includes(channel.id)) {
+    await interaction.reply({
+      content: `⚠️ ${channel} は既に登録されています。`,
+      ephemeral: true,
+    });
+    return { success: false };
+  }
+  
+  config.channelIds.push(channel.id);
   saveConfig(config);
 
   await interaction.reply({
-    content: `✅ ${channel} で毎日18:00に明日の予定を送信します。`,
+    content: `✅ ${channel} で毎日18:00に明日の予定を送信します。\n登録チャンネル数: ${config.channelIds.length}件`,
     ephemeral: true,
   });
 
   console.log(
-    `送信先チャンネルを設定しました: ${channel.name} (${channel.id})`
+    `送信先チャンネルを追加しました: ${channel.name} (${channel.id})`
   );
 
-  return { success: true, channelId: channel.id };
+  return { success: true, channelIds: config.channelIds };
 }
 
 /**
  * /unschedule コマンドの処理
  * @param {CommandInteraction} interaction
- * @param {string|null} currentChannelId
- * @returns {Object} { success: boolean }
+ * @param {string[]} currentChannelIds
+ * @returns {Object} { success: boolean, channelIds: string[] }
  */
-export async function handleUnscheduleCommand(interaction, currentChannelId) {
-  if (!currentChannelId) {
+export async function handleUnscheduleCommand(interaction, currentChannelIds) {
+  if (!currentChannelIds || currentChannelIds.length === 0) {
     await interaction.reply({
       content: "⚠️ 自動送信は設定されていません。",
       ephemeral: true,
@@ -77,17 +91,30 @@ export async function handleUnscheduleCommand(interaction, currentChannelId) {
   }
 
   const config = loadConfig();
-  config.channelId = null;
+  
+  // 実行したチャンネルのみ削除
+  const channelId = interaction.channelId;
+  const index = config.channelIds.indexOf(channelId);
+  
+  if (index === -1) {
+    await interaction.reply({
+      content: "⚠️ このチャンネルは登録されていません。",
+      ephemeral: true,
+    });
+    return { success: false };
+  }
+  
+  config.channelIds.splice(index, 1);
   saveConfig(config);
 
   await interaction.reply({
-    content: "✅ カレンダーの自動送信を停止しました。",
+    content: `✅ このチャンネルの自動送信を停止しました。\n残り登録チャンネル数: ${config.channelIds.length}件`,
     ephemeral: true,
   });
 
-  console.log("自動送信を停止しました");
+  console.log(`自動送信を停止しました: ${channelId}`);
 
-  return { success: true };
+  return { success: true, channelIds: config.channelIds };
 }
 
 /**
