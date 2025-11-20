@@ -79,6 +79,9 @@ export async function getTomorrowEvents(calendarUrl) {
           eventStart = new Date(event.start);
         }
 
+        // 終日イベントかどうかを判定
+        const isAllDayEvent = typeof event.start === 'string' && event.start.length === 8;
+
         // 終了日も同様に処理
         let eventEnd;
         if (event.end instanceof Date) {
@@ -88,13 +91,23 @@ export async function getTomorrowEvents(calendarUrl) {
           const month = jstDate.getUTCMonth();
           const day = jstDate.getUTCDate();
           eventEnd = new Date(Date.UTC(year, month, day));
+          // 終日イベントの場合、DTENDは翌日を指しているので1日引く
+          if (isAllDayEvent) {
+            eventEnd.setUTCDate(eventEnd.getUTCDate() - 1);
+          }
         } else if (typeof event.end === "string" && event.end.length === 8) {
           const year = parseInt(event.end.substring(0, 4));
           const month = parseInt(event.end.substring(4, 6)) - 1;
           const day = parseInt(event.end.substring(6, 8));
           eventEnd = new Date(year, month, day);
+          // 終日イベントの場合、DTENDは翌日を指しているので1日引く
+          eventEnd.setDate(eventEnd.getDate() - 1);
         } else {
           eventEnd = new Date(event.end);
+          // 終日イベントの場合、DTENDは翌日を指しているので1日引く
+          if (isAllDayEvent) {
+            eventEnd.setDate(eventEnd.getDate() - 1);
+          }
         }
 
         // 明日の予定かどうかをチェック
