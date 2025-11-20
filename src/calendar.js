@@ -80,7 +80,8 @@ export async function getTomorrowEvents(calendarUrl) {
         }
 
         // 終日イベントかどうかを判定
-        const isAllDayEvent = typeof event.start === 'string' && event.start.length === 8;
+        const isAllDayEvent =
+          typeof event.start === "string" && event.start.length === 8;
 
         // 終了日も同様に処理
         let eventEnd;
