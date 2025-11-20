@@ -27,25 +27,23 @@ export function createMessage(events) {
     message = `📅 **明日(${dateStr})の予定** (${events.length}件)\n\n`;
 
     events.forEach((event, index) => {
-      const startTime = new Date(event.start).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Tokyo",
-      });
-      const endTime = new Date(event.end).toLocaleTimeString("ja-JP", {
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Tokyo",
-      });
-
-      const isAllDay = startTime === endTime;
-
       message += `-----------------------------------\n`;
       message += `### ${index + 1}. ${event.summary}\n`;
 
-      if (isAllDay) {
+      // calendar.jsで設定されたisFullDayフラグを使用
+      if (event.isFullDay) {
         message += `⏰ 終日\n`;
       } else {
+        const startTime = new Date(event.start).toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Tokyo",
+        });
+        const endTime = new Date(event.end).toLocaleTimeString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Tokyo",
+        });
         message += `⏰ ${startTime} - ${endTime}\n`;
       }
 

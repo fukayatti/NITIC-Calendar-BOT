@@ -111,10 +111,26 @@ export async function getTomorrowEvents(calendarUrl) {
           }
         }
 
+        // 前日9時から当日9時のイベント(UTC 0時から0時)を除外する判定
+        const originalStart = new Date(event.start);
+        const originalEnd = new Date(event.end);
+        const startJST = new Date(originalStart.getTime() + jstOffset);
+        const endJST = new Date(originalEnd.getTime() + jstOffset);
+
+        // 前日9時(JST)から当日9時(JST)のパターンを検出
+        const isPreviousDayPattern =
+          startJST.getUTCHours() === 0 &&
+          startJST.getUTCMinutes() === 0 &&
+          endJST.getUTCHours() === 0 &&
+          endJST.getUTCMinutes() === 0 &&
+          endJST.getTime() - startJST.getTime() === 24 * 60 * 60 * 1000;
+
         // 明日の予定かどうかをチェック
         const isTomorrow =
           eventStart < dayAfterTomorrow && eventEnd >= tomorrow;
-        if (isTomorrow) {
+
+        // 前日9時から当日9時のイベントは除外
+        if (isTomorrow && !isPreviousDayPattern) {
           console.log(`[DEBUG] ✅ 明日の予定: ${event.summary}`);
           console.log(
             `[DEBUG]   開始: ${eventStart.toISOString()} (${eventStart.toLocaleString(
@@ -128,12 +144,22 @@ export async function getTomorrowEvents(calendarUrl) {
               { timeZone: "Asia/Tokyo" }
             )})`
           );
+
+          // 当日9時から翌日9時のパターンを終日として保存
+          const isFullDayPattern =
+            startJST.getUTCHours() === 0 &&
+            startJST.getUTCMinutes() === 0 &&
+            endJST.getUTCHours() === 0 &&
+            endJST.getUTCMinutes() === 0 &&
+            endJST.getTime() - startJST.getTime() === 24 * 60 * 60 * 1000;
+
           tomorrowEvents.push({
             summary: event.summary,
             start: event.start, // 元の時刻情報を保存
             end: event.end, // 元の時刻情報を保存
             description: event.description || "",
             location: event.location || "",
+            isFullDay: isAllDayEvent || isFullDayPattern, // 終日フラグを追加
           });
         }
       }
